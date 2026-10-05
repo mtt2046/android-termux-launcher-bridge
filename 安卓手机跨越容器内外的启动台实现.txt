@@ -1,0 +1,51 @@
+﻿安卓手机跨越容器内外的启动台实现
+
+一、痛点：容器够不着
+  在安卓手机上用 Termux 跑起一批 Linux 服务（网盘、邮箱、聊天、内网穿透等）后，
+  普通用户面临一个真实隔阂：这些服务都活在 Termux 这个“容器”里，怎么方便地开、关它们？
+  手机上敲命令行，对大多数人来说既难又反人性。
+
+二、桥：桌面下拉菜单
+  解法是 Termux:Widget —— Termux 官方配套的小部件 App。
+  在桌面长按 → 小部件 → 找到 Termux:Widget → 拖到桌面，就“捞”出一个列表图标。
+  这个列表图标读的是 Termux 里的 ~/.shortcuts/ 目录：每个 .sh 脚本自动变成列表里的一项。
+  点一项 = 跑一个脚本 = 在容器里执行一段预置好的动作。
+
+三、重点：告别命令行（这是突破）
+  把命令提前写成脚本、收进下拉菜单，用户要做的只是“在桌面点一下”。
+  门槛被彻底拉平——从“用不了”到“用得了”。我们把它叫做跨越容器隔阂的桥。
+
+四、万能启动台：不止容器内
+  我们一开始只把它当成“容器内服务的开关”。后来一思索：菜单项背后是脚本，
+  脚本在 Termux 里能调用安卓系统的 am start 命令，于是也能拉起容器外的普通 APP
+  （微信、浏览器、相册……）。
+  这一下，它从“容器开关”升级成“万能启动台”——一个桌面图标，统管容器内服务 + 容器外 APP。
+
+五、落地概要（框架）
+  1) 安装：Termux + Termux:Widget，均从 F-Droid 获取（Google Play 已停更）。
+  2) 建目录：mkdir -p ~/.shortcuts/；每个 .sh 脚本 = 列表一项。
+  3) 写脚本的硬规矩（踩坑总结）：
+     · chmod +x 设可执行；
+     · shebang 用绝对路径 #!/data/data/com.termux/files/usr/bin/sh（别写 #!/bin/sh 或 #!/usr/bin/env）；
+     · 脚本开头自己导出 HOME/PREFIX/PATH；
+     · 常驻进程用 setsid nohup ... & < /dev/null 脱壳，否则点完就死。
+  4) 挂桌面：长按 → 小部件 → Termux:Widget → 拖出。
+  最简示例（只起 sshd）：
+     #!/data/data/com.termux/files/usr/bin/sh
+     export HOME=/data/data/com.termux/files/home
+     export PREFIX=/data/data/com.termux/files/usr
+     export PATH=$PREFIX/bin:/system/bin:/system/xbin:$PATH
+     sshd
+  拉起容器外的普通 APP，同样只需一行：
+     am start -p com.tencent.mm        # 打开微信；把包名换成你要的 App 即可。少数定制 ROM 若报“找不到 Activity”，改用 am start -n 包名/主Activity
+  把这类“精干脚本”逐个放进 ~/.shortcuts/，菜单就一项项长出来——既能管容器内服务，也能一键开外部 APP。
+
+六、多启动台？目前受限
+  Termux:Widget 只读 ~/.shortcuts/ 这一个目录，拖多少个图标实例都指向它。
+  所以现阶段就是“一个启动台”；项多了靠建子目录（如 服务器/、APP/）分组收纳，不靠多个图标。
+
+七、小结
+  用桌面小部件当桥，把容器内外的操作收进一个下拉菜单，点一下就办。
+  对不想碰命令行的手机用户，这是一次实打实的门槛突破。
+
+（本文为框架版：思路与硬规矩已给全，完整脚本请按上文自行扩展，不必照抄某一套。）
